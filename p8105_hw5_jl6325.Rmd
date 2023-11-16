@@ -108,7 +108,7 @@ This figure suggests a very wide range in the rate at which homicides are solved
 
 ```{r}
 q2 <-
-  tibble(list.files("data/data2", full.names = TRUE))
+  tibble(filename = list.files("data/data2"))
 
 readfile <-
   function(csv, path = "data/data2") {
@@ -118,3 +118,34 @@ readfile <-
 ```
 
 Set a function to read files.
+
+```{r}
+longitudinal <-
+  q2 |>
+  mutate(longitudinal_df = map(q2$filename, readfile)) |>
+  unnest(longitudinal_df) |> 
+  mutate(arm = map_chr(.x = filename, ~ unlist(str_split(.x, "\\.") ) [[1]] )) |> 
+  mutate(arm1 = map_chr(.x = arm, ~ unlist(str_split(.x, "_") ) [[1]] )) |> 
+  mutate(subject_id = map_chr(.x = arm, ~ unlist(str_split(.x, "_") ) [[2]] )) |> 
+  select(-filename, -arm)
+```
+
+```{r}
+pivot_longer = 
+  longitudinal |> 
+  pivot_longer(week_1:week_8,
+               names_to = "week",
+               names_prefix = "week_",
+               values_to = "value") |> 
+  mutate(week = as.integer(week))
+
+plot = 
+  pivot_longer |> 
+  ggplot(aes(week, value, color = subject_id)) + 
+  geom_line() + 
+  facet_wrap(~arm1) + 
+  labs(x = 'Week', y = 'Value', title = 'Spaghetti Plot', color = "Subject ID")
+
+```
+
+
