@@ -147,5 +147,92 @@ plot =
   labs(x = 'Week', y = 'Value', title = 'Spaghetti Plot', color = "Subject ID")
 
 ```
+The comparison between the control and experimental arms reveals distinct patterns. The control arm consistently exhibits lower values across the eight weeks in contrast to the experimental arm, which displays a general upward trend. Notably, the control arm demonstrates higher variability and fluctuations throughout the study period, lacking a discernible trend compared to the experimental arm's clear increasing trajectory.
+
+## Problem 3
+
+```{r}
+n <- 30
+sigma <- 5
+alpha <- 0.05
+mus <- c(0, 1, 2, 3, 4, 5, 6)
+set.seed(1)
+sim_mean_sd = function(n, mu, sigma) {
+  
+  sim_data = tibble(
+    x = rnorm(n, mean = mu, sd = sigma),
+  )
+  
+  sim_data |> 
+    summarize(
+      mean_x = mean(x),
+      sd_x = sd(x)
+    )
+}
+```
+
+```{r}
+ttest <- function(n, mu, sigma) {
+  sample <- rnorm(n, mean = mu, sd = sigma)
+  test_result <- t.test(sample, mu = 0)
+  broom::tidy(test_result)
+}
+```
+
+```{r}
+ttest_df <- tibble(mu = numeric(), mean_x = numeric(), p_value = numeric(), reject = logical())
+```
+
+```{r}
+for (mu in mus) {
+  for (i in 1:5000) {
+    sim_results <- sim_mean_sd(n, mu, sigma)
+    rttest <- ttest(n, mu, sigma)
+    ttest_df <- ttest_df %>% 
+      add_row(mu = mu, 
+              mean_x = sim_results$mean_x, 
+              p_value = rttest$p.value, 
+              reject = rttest$p.value < alpha)
+  }
+}
+```
+    
+## Power Calculation
+```{r}
+power <- ttest_df |>
+  group_by(mu) |> 
+  summarise(p = mean(reject), 
+            mean_mu = mean(mean_x), 
+            mean_mu_rejected = mean(mean_x[reject])
+)
+```
 
 
+```{r}
+power |>
+  ggplot(aes(x = mu, y = p)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Power vs. True Mean", x = "True Mean", y = "Power"
+    )
+```
+The graph illustrates a clear positive relationship: higher true mu values correspond to an increased likelihood of rejecting the null hypothesis (greater power). This alignment stems from larger effect sizes, which inherently amplify statistical power, facilitating the detection of significant differences more effectively.
+
+```{r}
+power |>
+  ggplot(aes(x = mu)) +
+  geom_point(aes(y = mean_mu, color = "Average Estimate"), alpha = .5) +  
+  geom_line(aes(y = mean_mu, color = "Average Estimate"), linetype = "dotdash") +
+  geom_point(aes(y = mean_mu_rejected, color = "Conditional Average Estimate"), shape = 2, alpha = .5) +
+  geom_line(aes(y = mean_mu_rejected, color = "Conditional Average Estimate")) +
+  labs(
+    title = "Average Estimated Mean vs. True Mean",
+    x = "True Mean",
+    y = "Average Estimated Mean",
+    color = "mean_mu"
+  ) +
+  scale_color_manual(
+    values = c("Average Estimate" = "blue", "Conditional Average Estimate" = "red")
+  )
+```
